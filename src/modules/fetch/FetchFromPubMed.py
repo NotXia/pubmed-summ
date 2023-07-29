@@ -4,6 +4,8 @@ from modules.Document import Document
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
+import pickle as pickle
+import os
 
 
 class FetchFromPubMed(FetchInterface):
@@ -11,20 +13,28 @@ class FetchFromPubMed(FetchInterface):
         Parameters
         ----------
             batch_size : int
-                Number of documents to fetch with a single API call to PubMed
+                Number of documents to fetch with a single API call to PubMed.
+
+            fs_cache : bool
+                If true, retrieved articles will be cached locally.
+
+            batch_size : str
+                Path of cache directory.
     """
-    def __init__(self, batch_size=5000):
+    def __init__(self, batch_size: int=5000, fs_cache: bool=False, cache_dir: str="./.cache"):
         super().__init__()
         self.batch_size = batch_size
+        self.fs_cache = fs_cache
+        self.cache_dir = cache_dir
 
 
     """
-        Retrieve PubMed abstracts
+        Retrieve PubMed abstracts.
 
         Parameters
         ----------
             query : str
-                Search query
+                Search query.
 
         Returns
         -------
@@ -42,12 +52,12 @@ class FetchFromPubMed(FetchInterface):
             })
             return res.json()
         
-        def _efetch(ids):
+        def _efetch(pmids):
             res = requests.post("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", data={
                 "db": "pubmed",
                 "retmode": "xml",
                 "rettype": "abstract",
-                "id": ",".join(ids)
+                "id": ",".join(pmids)
             })
             return res.content
 
@@ -111,6 +121,22 @@ class FetchFromPubMed(FetchInterface):
 
             return Document(title=title, abstract=abstract, date=date, authors=authors, doi=doi, pmid=pmid)
         
+        def _getCached(pmid):
+            if not self.fs_cache: return None
+            
+            cache_file = os.path.join(self.cache_dir, f"{pmid}.pkl")
+            if os.path.exists(cache_file):
+                with open(cache_file, "rb") as fin:
+                    return pickle.load(fin)
+            return None
+
+        def _cacheDocument(document: Document):
+            if not self.fs_cache: return
+
+            if not os.path.exists(self.cache_dir): os.makedirs(self.cache_dir)
+            with open(os.path.join(self.cache_dir, f"{document.pmid}.pkl"), "wb") as fout:
+                pickle.dump(document, fout, pickle.HIGHEST_PROTOCOL)
+
 
         documents = []
         pmids = ["pad"]
@@ -120,11 +146,24 @@ class FetchFromPubMed(FetchInterface):
             pmids = res["esearchresult"]["idlist"]
             retstart += len(pmids)
 
+            # Retrieves cached documents first
+            i = 0
+            while i < len(pmids):
+                doc = _getCached(pmids[i])
+                if doc is not None:
+                    del pmids[i]
+                    documents.append(doc)
+                else:
+                    i += 1
+
+            # Retrieves remaining documents from PubMed
             query_xml = _efetch(pmids)
             query_tree = ET.fromstring(query_xml)
             for article_tree in query_tree:
                 doc = _getDocumentFromXML(article_tree)
                 if doc is not None:
+                    _cacheDocument(doc)
                     documents.append(doc)
-                    
+            
         return [Cluster(documents)]
+        
