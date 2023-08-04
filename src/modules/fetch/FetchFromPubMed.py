@@ -74,7 +74,7 @@ class FetchFromPubMed(FetchInterface):
             title = _getInnerText(xml.find("MedlineCitation/Article/ArticleTitle"))
             
             # Date
-            date = None
+            date: datetime|None = None
             try:
                 date_xml = xml.find("MedlineCitation/Article/ArticleDate")
                 date = datetime( int(date_xml.find("Year").text), int(date_xml.find("Month").text), int(date_xml.find("Day").text) )
@@ -121,7 +121,7 @@ class FetchFromPubMed(FetchInterface):
 
             return Document(title=title, abstract=abstract, date=date, authors=authors, doi=doi, pmid=pmid)
         
-        def _getCached(pmid):
+        def _getCached(pmid) -> Document|None:
             if not self.fs_cache: return None
             
             cache_file = os.path.join(self.cache_dir, f"{pmid}.pkl")
@@ -138,7 +138,7 @@ class FetchFromPubMed(FetchInterface):
                 pickle.dump(document, fout, pickle.HIGHEST_PROTOCOL)
 
 
-        documents = []
+        documents: list[Document] = []
         pmids = ["pad"]
         retstart = 0
         while len(pmids) > 0:

@@ -7,16 +7,23 @@ class Document:
         ----------
             title : str
             abstract : str
-            date : datetime
-            authors : list[str]
+            date : datetime|None
+            authors : list[str]|None
                 List of strings with format 'surname, name'
-            doi : str
-            pmid : str
+            doi : str|None
+            pmid : str|None
     """
-    def __init__(self, title: str, abstract: str, date: datetime, authors: list[str], doi: str="", pmid: str=""):
-        self.title: str = title
-        self.abstract: str = abstract
-        self.date: datetime = date
-        self.authors: list[str] = authors
-        self.doi: str = doi
-        self.pmid: str = pmid
+    def __init__(self, 
+            title: str, 
+            abstract: str, 
+            date: datetime|None = None, 
+            authors: list[str]|None = None, 
+            doi: str|None = None, 
+            pmid: str|None = None
+        ):
+        self.title = title
+        self.abstract = abstract
+        self.date = date
+        self.authors = authors
+        self.doi = doi
+        self.pmid = pmid
