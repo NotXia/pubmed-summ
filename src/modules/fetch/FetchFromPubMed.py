@@ -15,15 +15,20 @@ class FetchFromPubMed(FetchInterface):
             batch_size : int
                 Number of documents to fetch with a single API call to PubMed.
 
+            max_fetched : int|None
+                Maximum number of fetched articles.
+                All available if None.
+
             fs_cache : bool
                 If true, retrieved articles will be cached locally.
 
             batch_size : str
                 Path of cache directory.
     """
-    def __init__(self, batch_size: int=5000, fs_cache: bool=False, cache_dir: str="./.cache"):
+    def __init__(self, batch_size: int=5000, max_fetched: int|None=None, fs_cache: bool=False, cache_dir: str="./.cache"):
         super().__init__()
         self.batch_size = batch_size
+        self.max_fetched = max_fetched
         self.fs_cache = fs_cache
         self.cache_dir = cache_dir
 
@@ -139,31 +144,39 @@ class FetchFromPubMed(FetchInterface):
 
 
         documents: list[Document] = []
-        pmids = ["pad"]
+        batch_pmids = ["pad"]
         retstart = 0
-        while len(pmids) > 0:
-            res = _esearch(query, retstart=retstart)
-            pmids = res["esearchresult"]["idlist"]
-            retstart += len(pmids)
+        while len(batch_pmids) > 0:
+            res: dict
+            if self.max_fetched is not None:
+                res = _esearch(query, retstart=retstart, retmax=min(self.batch_size, self.max_fetched-len(documents)))
+            else:
+                res = _esearch(query, retstart=retstart, retmax=self.batch_size)
+            batch_pmids = res["esearchresult"]["idlist"]
+            retstart += len(batch_pmids)
 
             # Retrieves cached documents first
             i = 0
-            while i < len(pmids):
-                doc = _getCached(pmids[i])
+            while i < len(batch_pmids):
+                doc = _getCached(batch_pmids[i])
                 if doc is not None:
-                    del pmids[i]
+                    del batch_pmids[i]
                     documents.append(doc)
                 else:
                     i += 1
 
             # Retrieves remaining documents from PubMed
-            query_xml = _efetch(pmids)
+            query_xml = _efetch(batch_pmids)
             query_tree = ET.fromstring(query_xml)
             for article_tree in query_tree:
                 doc = _getDocumentFromXML(article_tree)
                 if doc is not None:
                     _cacheDocument(doc)
                     documents.append(doc)
+
+            # Reached maximum number of required documents
+            if (self.max_fetched is not None) and (len(documents) >= self.max_fetched):
+                break
             
         return [Cluster(documents)]
         
