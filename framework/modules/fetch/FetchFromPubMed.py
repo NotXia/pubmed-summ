@@ -39,19 +39,35 @@ class FetchFromPubMed(FetchInterface):
                 Maximum number of fetched articles.
                 All available if None.
 
+            min_date: str|None
+                Minimum publication date of the articles (Format: YYYY/MM/DD, YYYY/MM, YYYY).
+
+            max_date: str|None
+                Maximun publication date of the articles (Format: YYYY/MM/DD, YYYY/MM, YYYY).
+
         Returns
         -------
             documents : list[Cluster]
                 A list containing a single cluster with all retrieved documents.
     """
-    def __call__(self, query: str, batch_size: int=5000, max_fetched: int|None=None) -> list[Cluster]:
-        def _esearch(query, retstart=0, retmax=batch_size):
+    def __call__(self, 
+        query: str, 
+        batch_size: int = 5000, 
+        max_fetched: int|None = None,
+        min_date: str|None = None,
+        max_date: str|None = None
+    ) -> list[Cluster]:
+        def _esearch(query, retstart=0, retmax=batch_size, min_date=None, max_date=None):
             res = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", params={
                 "db": "pubmed",
                 "retmode": "json",
                 "retmax": retmax,
                 "retstart": retstart,
-                "term": query
+                "term": query,
+                "sort": "pub_date",
+                "datetype": "pdat", # Publication date
+                "mindate": min_date, 
+                "maxdate": max_date
             })
             return res.json()
         
@@ -79,9 +95,18 @@ class FetchFromPubMed(FetchInterface):
             # Date
             date: datetime|None = None
             try:
-                date_xml = xml.find("MedlineCitation/Article/ArticleDate")
-                date = datetime( int(date_xml.find("Year").text), int(date_xml.find("Month").text), int(date_xml.find("Day").text) )
+                date_xml = xml.find("MedlineCitation/Article/Journal/JournalIssue/PubDate")
+                year = date_xml.find('Year').text
+                month = date_xml.find('Month').text if date_xml.find('Month') is not None else "Jan"
+                day = date_xml.find('Day').text if date_xml.find('Day') is not None else "1"
+                date = datetime.strptime(f"{year}-{month}-{day}", '%Y-%b-%d')
             except: date = None
+
+            if date is None:
+                try:
+                    date_xml = xml.find("MedlineCitation/Article/ArticleDate")
+                    date = datetime( int(date_xml.find("Year").text), int(date_xml.find("Month").text), int(date_xml.find("Day").text) )
+                except: date = None
 
             if date is None:
                 try:
@@ -89,15 +114,6 @@ class FetchFromPubMed(FetchInterface):
                     date = datetime( int(date_xml.find("Year").text), int(date_xml.find("Month").text), int(date_xml.find("Day").text) )
                 except: date = None
 
-            if date is None:
-                try:
-                    date_xml = xml.find("MedlineCitation/Article/Journal/JournalIssue/PubDate")
-                    year = date_xml.find('Year').text
-                    month = date_xml.find('Month').text if date_xml.find('Month') is not None else "Jan"
-                    day = date_xml.find('Day').text if date_xml.find('Day') is not None else "1"
-                    date = datetime.strptime(f"{year}-{month}-{day}", '%Y-%b-%d')
-                except: date = None
-            
             # Identifiers
             id_xml = xml.find("PubmedData/ArticleIdList")
             doi = id_xml.find("ArticleId[@IdType='doi']").text if id_xml.find("ArticleId[@IdType='doi']") is not None else ""
@@ -147,9 +163,9 @@ class FetchFromPubMed(FetchInterface):
         while len(batch_pmids) > 0:
             res: dict
             if max_fetched is not None:
-                res = _esearch(query, retstart=retstart, retmax=min(batch_size, max_fetched-len(documents)))
+                res = _esearch(query, retstart=retstart, retmax=min(batch_size, max_fetched-len(documents)), min_date=min_date, max_date=max_date)
             else:
-                res = _esearch(query, retstart=retstart, retmax=batch_size)
+                res = _esearch(query, retstart=retstart, retmax=batch_size, min_date=min_date, max_date=max_date)
             batch_pmids = res["esearchresult"]["idlist"]
             retstart += len(batch_pmids)
 

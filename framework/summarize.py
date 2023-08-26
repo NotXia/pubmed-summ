@@ -38,6 +38,12 @@ class ClustererSummarizer():
 
             max_fetched : int|None 
                 Refer to `FetchFromPubMed`.
+
+            min_date: str|None
+                Refer to `FetchFromPubMed`.
+
+            max_date: str|None
+                Refer to `FetchFromPubMed`.
         
             onClustersCreated: Callable[[list[Cluster]], None] | None
                 A function that will be called at the end of the clusterization phase.
@@ -58,11 +64,19 @@ class ClustererSummarizer():
         query: str, 
         batch_size: int = 5000, 
         max_fetched: int|None = None,
+        min_date: str|None = None,
+        max_date: str|None = None,
         onClustersCreated: Callable[[list[Cluster]], None]|None = None,
         onDocumentSummary: Callable[[Document], None]|None = None,
         onClusterSummary: Callable[[Cluster], None]|None = None
     ) -> list[Cluster]:
-        clusters = self.fetcher(query, batch_size=batch_size, max_fetched=max_fetched)
+        clusters = self.fetcher(
+            query = query, 
+            batch_size = batch_size, 
+            max_fetched = max_fetched, 
+            min_date = min_date,
+            max_date = max_date
+        )
 
         clusters = self.clusterer(clusters)
         if onClustersCreated is not None: onClustersCreated(clusters)
