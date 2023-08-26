@@ -12,23 +12,14 @@ class FetchFromPubMed(FetchInterface):
     """
         Parameters
         ----------
-            batch_size : int
-                Number of documents to fetch with a single API call to PubMed.
-
-            max_fetched : int|None
-                Maximum number of fetched articles.
-                All available if None.
-
             fs_cache : bool
                 If true, retrieved articles will be cached locally.
-
-            batch_size : str
-                Path of cache directory.
+            
+            cache_dir : str
+                Directory for cached articles.
     """
-    def __init__(self, batch_size: int=5000, max_fetched: int|None=None, fs_cache: bool=False, cache_dir: str="./.cache"):
+    def __init__(self, fs_cache: bool=False, cache_dir: str="./.cache"):
         super().__init__()
-        self.batch_size = batch_size
-        self.max_fetched = max_fetched
         self.fs_cache = fs_cache
         self.cache_dir = cache_dir
 
@@ -41,13 +32,20 @@ class FetchFromPubMed(FetchInterface):
             query : str
                 Search query.
 
+            batch_size : int
+                Number of documents to fetch with a single API call to PubMed.
+
+            max_fetched : int|None
+                Maximum number of fetched articles.
+                All available if None.
+
         Returns
         -------
             documents : list[Cluster]
                 A list containing a single cluster with all retrieved documents.
     """
-    def __call__(self, query: str) -> list[Cluster]:
-        def _esearch(query, retstart=0, retmax=self.batch_size):
+    def __call__(self, query: str, batch_size: int=5000, max_fetched: int|None=None) -> list[Cluster]:
+        def _esearch(query, retstart=0, retmax=batch_size):
             res = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", params={
                 "db": "pubmed",
                 "retmode": "json",
@@ -148,10 +146,10 @@ class FetchFromPubMed(FetchInterface):
         retstart = 0
         while len(batch_pmids) > 0:
             res: dict
-            if self.max_fetched is not None:
-                res = _esearch(query, retstart=retstart, retmax=min(self.batch_size, self.max_fetched-len(documents)))
+            if max_fetched is not None:
+                res = _esearch(query, retstart=retstart, retmax=min(batch_size, max_fetched-len(documents)))
             else:
-                res = _esearch(query, retstart=retstart, retmax=self.batch_size)
+                res = _esearch(query, retstart=retstart, retmax=batch_size)
             batch_pmids = res["esearchresult"]["idlist"]
             retstart += len(batch_pmids)
 
@@ -175,7 +173,7 @@ class FetchFromPubMed(FetchInterface):
                     documents.append(doc)
 
             # Reached maximum number of required documents
-            if (self.max_fetched is not None) and (len(documents) >= self.max_fetched):
+            if (max_fetched is not None) and (len(documents) >= max_fetched):
                 break
             
         return [Cluster(documents)]
