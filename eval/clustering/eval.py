@@ -28,6 +28,8 @@ def tfidfEmbedding(ngram_range):
 def neuralEmbedding(model_type, path=None):
     if model_type == "word2vec":
         model = gensim.downloader.load("word2vec-google-news-300")
+    if model_type == "glove":
+        model = gensim.downloader.load("glove-wiki-gigaword-300")
     elif model_type == "fasttext":
         model = gensim.downloader.load("fasttext-wiki-news-subwords-300")
     elif model_type == "biowordvec":
@@ -161,7 +163,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="Model evaluation")
     parser.add_argument("--dataset", type=str, default="./dataset.json", required=False, help="Path for the dataset")
     parser.add_argument("--embedding", type=str, choices=[
-        "bow", "word2vec", "fasttext", "biowordvec", "minilm", "biobert", "pubmedbert"
+        "bow", "word2vec", "glove", "fasttext", "biowordvec", "minilm", "biobert", "pubmedbert"
         ], required=True, help="Embedding to evaluate")
     parser.add_argument("--model-path", type=str, required=False, help="Path to the model to load (neeeded for biowordvec)")
     parser.add_argument("--save-raw", type=str, required=False, help="Path to the location to save the raw scores")
@@ -173,6 +175,8 @@ if __name__ == "__main__":
         to_try_embeddings.append( ("tdidf[1,2,3-gram]", tfidfEmbedding(ngram_range=(1,3))) )
     elif args.embedding == "word2vec":
         to_try_embeddings.append( ("word2vec", neuralEmbedding("word2vec")) )
+    elif args.embedding == "glove":
+        to_try_embeddings.append( ("glove", neuralEmbedding("glove")) )
     elif args.embedding == "fasttext":
         to_try_embeddings.append( ("fasttext", neuralEmbedding("fasttext")) )
     elif args.embedding == "biowordvec":
