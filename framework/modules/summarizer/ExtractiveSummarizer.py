@@ -1,3 +1,4 @@
+from typing import Callable
 from modules.Cluster import Cluster
 from modules.Document import Document
 from modules.ModuleInterface import ModuleInterface
@@ -20,7 +21,27 @@ class ExtractiveSummarizer(ModuleInterface):
         self.nlp.select_pipes(enable=['tok2vec', "parser", "senter"])
 
     
-    def __call__(self, clusters: list[Cluster]) -> list[Cluster]:
+    """
+        Summarizes each cluster in a list.
+
+        Parameters
+        ----------
+            clusters : list[Cluster]
+                Clusters to summarize.
+            
+            onDocumentSummary : Callable[[Document], None] | None
+                A function that will be called when the summary of an article is ready.
+                The Document object of the article will be passed as argument.
+
+            onClusterSummary : Callable[[Cluster], None] | None
+                A function that will be called when the summary of a cluster is ready.
+                The Cluster object will be passed as argument.
+    """
+    def __call__(self, 
+        clusters: list[Cluster], 
+        onDocumentSummary: Callable[[Document], None]|None = None,
+        onClusterSummary: Callable[[Cluster], None]|None = None
+    ) -> list[Cluster]:
         def _doc2sents(document):
             return [s.text for s in self.nlp(document).sents]
         
@@ -40,6 +61,7 @@ class ExtractiveSummarizer(ModuleInterface):
             # Saves the summary of each document
             for i in range(len(new_cluster.docs)):
                 new_cluster.docs[i].summary = summarizer_out[i][0]
+                if onDocumentSummary is not None: onDocumentSummary(new_cluster.docs[i])
 
             # Summarize all (summarized) abstracts as a single document
             full_doc_sentences = []
@@ -50,7 +72,6 @@ class ExtractiveSummarizer(ModuleInterface):
 
             new_cluster.summary = [s.strip() for s in selected_sents]
             out_cluster.append(new_cluster)
-
-            print(new_cluster.summary)
+            if onClusterSummary is not None: onClusterSummary(new_cluster)
 
         return out_cluster
