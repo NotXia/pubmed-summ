@@ -19,7 +19,8 @@ class Document:
             date: datetime|None = None, 
             authors: list[str]|None = None, 
             doi: str|None = None, 
-            pmid: str|None = None
+            pmid: str|None = None,
+            summary: str|list[str]|None = None # Summary as string or list of sencences
         ):
         self.title = title
         self.abstract = abstract
@@ -27,3 +28,4 @@ class Document:
         self.authors = authors
         self.doi = doi
         self.pmid = pmid
+        self.summary = summary
