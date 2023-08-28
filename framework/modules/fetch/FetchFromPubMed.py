@@ -122,11 +122,12 @@ class FetchFromPubMed(FetchInterface):
             # Authors
             authors_xml = xml.find("MedlineCitation/Article/AuthorList")
             authors = []
-            for author_xml in authors_xml:
-                try:
-                    authors.append(f"{author_xml.find('LastName').text}, {author_xml.find('ForeName').text}")
-                except:
-                    continue
+            if authors_xml is not None:
+                for author_xml in authors_xml:
+                    try:
+                        authors.append(f"{author_xml.find('LastName').text}, {author_xml.find('ForeName').text}")
+                    except:
+                        continue
 
             # Abstract
             abstract_sections = xml.find("MedlineCitation/Article/Abstract").findall("AbstractText")
