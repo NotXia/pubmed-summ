@@ -14,3 +14,13 @@ class Cluster:
         self.is_outlier = is_outlier
         self.summary = summary
         self.metadata = metadata
+
+
+    def toJSON(self):
+        return {
+            "docs": [doc.toJSON() for doc in self.docs],
+            "topics": self.topics,
+            "is_outlier": self.is_outlier,
+            "summary": self.summary,
+            "metadata": self.metadata
+        }

@@ -1,9 +1,9 @@
 export interface Article {
     title: string;
     abstract: string; 
-    date?: Date; 
+    date?: Date|null; 
     authors?: string[];
-    doi: string; 
+    doi: string|null; 
     pmid: string;
-    summary: string[];
+    summary: string[]|null;
 }

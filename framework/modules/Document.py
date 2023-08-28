@@ -29,3 +29,15 @@ class Document:
         self.doi = doi
         self.pmid = pmid
         self.summary = summary
+
+
+    def toJSON(self):
+        return {
+            "title": self.title,
+            "abstract": self.abstract,
+            "date": self.date.timestamp() if self.date is not None else None,
+            "authors": self.authors,
+            "doi": self.doi,
+            "pmid": self.pmid,
+            "summary": self.summary,
+        }
