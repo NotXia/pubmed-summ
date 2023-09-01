@@ -171,7 +171,7 @@ if __name__ == "__main__":
     elif args.dataset == "ms2":
         original_dataset = load_dataset("allenai/mslr2022", "ms2")
         extractive_dataset = load_from_disk(args.dataset_path)
-        summary_size = 3
+        summary_size = 4
     else:
         raise ValueError("Unknown dataset")
     
