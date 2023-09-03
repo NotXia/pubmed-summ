@@ -16,16 +16,16 @@ class ExtractiveSummarizer(ModuleInterface):
             model_name : str
                 Model for the summarization pipeline
 
-            pipeline : Pipeline|None
+            summ_pipeline : Pipeline|None
                 Summarization pipeline. Has priority over model_name.
     """
     def __init__(self, 
         model_name: str = "NotXia/longformer-bio-ext-summ", 
-        pipeline: Pipeline|None = None
+        summ_pipeline: Pipeline|None = None
     ):
         super().__init__()
-        if pipeline is not None:
-            self.summarizer = pipeline
+        if summ_pipeline is not None:
+            self.summarizer = summ_pipeline
         else:
             self.summarizer = pipeline("summarization",
                 model = model_name,
