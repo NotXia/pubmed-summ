@@ -36,6 +36,16 @@ class ClustererSummarizer():
             batch_size : int
                 Refer to `FetchFromPubMed`.
 
+            document_summary_sents : int
+                Number of sentences to summarize a document.
+
+            cluster_summary_sents : int
+                Number of sentences to summarize a cluster.
+
+            overall_summary_sents : int|None
+                Number of sentences in the overall summary.
+                If None, the overall summary will not be created.
+
             max_fetched : int|None 
                 Refer to `FetchFromPubMed`.
 
@@ -59,17 +69,23 @@ class ClustererSummarizer():
         -------
             cluster : list[Cluster]
                 The final clusters after the elaboration
+
+            overall_summary : str|list[str]
+                Overall summary for all the clusters.
     """
     def __call__(self, 
         query: str, 
         batch_size: int = 5000, 
+        document_summary_sents: int = 3,
+        cluster_summary_sents: int = 5,
+        overall_summary_sents: int|None = None,
         max_fetched: int|None = None,
         min_date: str|None = None,
         max_date: str|None = None,
         onClustersCreated: Callable[[list[Cluster]], None]|None = None,
         onDocumentSummary: Callable[[Document], None]|None = None,
         onClusterSummary: Callable[[Cluster], None]|None = None
-    ) -> list[Cluster]:
+    ) -> list[Cluster] | tuple[list[Cluster], str|list[str]]:
         clusters = self.fetcher(
             query = query, 
             batch_size = batch_size, 
@@ -81,6 +97,21 @@ class ClustererSummarizer():
         clusters = self.clusterer(clusters)
         if onClustersCreated is not None: onClustersCreated(clusters)
 
-        clusters = self.summarizer(clusters, onDocumentSummary=onDocumentSummary, onClusterSummary=onClusterSummary)
-
-        return clusters
+        if overall_summary_sents is None:
+            return self.summarizer(
+                clusters, 
+                onDocumentSummary = onDocumentSummary, 
+                onClusterSummary = onClusterSummary,
+                document_summary_len = document_summary_sents,
+                cluster_summary_len = cluster_summary_sents
+            )
+        else:
+            return self.summarizer(
+                clusters, 
+                onDocumentSummary = onDocumentSummary, 
+                onClusterSummary = onClusterSummary,
+                document_summary_len = document_summary_sents,
+                cluster_summary_len = cluster_summary_sents,
+                overall_summary_len = overall_summary_sents,
+                overall_summary = True
+            )
