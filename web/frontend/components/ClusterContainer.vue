@@ -2,9 +2,14 @@
 
 <div>
 
-    <h2 class="text-xl font-bold">
-        <span class="text-base">Topics</span><br/>
-        {{ cluster.topics.join(" &nbsp;&#183;&nbsp; ").toUpperCase() }}
+    <h2 class="text-xl font-bold" >
+        <div v-if="!cluster.is_outlier">
+            <span class="text-base">Topics</span><br/>
+            {{ cluster.topics.join(" &nbsp;&#183;&nbsp; ").toUpperCase() }}
+        </div>
+        <div v-else>
+            Outliers
+        </div>
     </h2>
 
     <div>
