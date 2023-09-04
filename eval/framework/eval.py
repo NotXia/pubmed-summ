@@ -175,6 +175,12 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
         ) 
 
     for split in splits:
+        # Indexes to display current status
+        curr_processed = 0
+        threshold_entries = 0
+        for entry in original_dataset[split]: 
+            if len(entry["abstract"]) >= threshold: threshold_entries += 1
+
         for i in range(len(original_dataset[split])):
             docs = original_dataset[split][i]["abstract"]
             pmids = original_dataset[split][i]["pmid"]
@@ -197,8 +203,9 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
 
             metrics.add("rouge", evalROUGE( [ref_summary], [summary] ))
             metrics.add("bertscore", evalBERTScore( [ref_summary], [summary] ))
-            sys.stdout.write(f"\r{i+1}/{len(original_dataset[split])} ({split}) --- {metrics.format(['rouge', 'bertscore'])}\033[K")
+            sys.stdout.write(f"\r{curr_processed+1}/{threshold_entries} ({split}) --- {metrics.format(['rouge', 'bertscore'])}\033[K")
             sys.stdout.flush()
+            curr_processed += 1
 
     sys.stdout.write("\r\033[K")
     print(f"{metrics.format(['rouge', 'bertscore'])}")
