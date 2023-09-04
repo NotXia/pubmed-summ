@@ -31,7 +31,7 @@ class Framework():
         self.dim_reduction = UMAP(n_components=8, random_state=42)
         self.clustering = OPTICS(min_samples=2)
         self.summarizer = ExtractiveSummarizer(
-            pipeline=pipeline("summarization",
+            summ_pipeline=pipeline("summarization",
                 model = "NotXia/longformer-bio-ext-summ",
                 tokenizer = AutoTokenizer.from_pretrained("NotXia/longformer-bio-ext-summ"),
                 trust_remote_code = True,
