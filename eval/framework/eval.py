@@ -70,10 +70,10 @@ def _getKeywords(pmids):
 
 
 class Framework():
-    def __init__(self, embedding, clustering_criteria):
+    def __init__(self, embedding, clustering_criteria, umap_comps=10, optics_min_samples=2):
         self.embedding = embedding
-        self.dim_reduction = UMAP(n_components=10, random_state=42)
-        self.clustering = OPTICS(min_samples=2)
+        self.dim_reduction = UMAP(n_components=umap_comps, random_state=42)
+        self.clustering = OPTICS(min_samples=optics_min_samples)
         self.summarizer = ExtractiveSummarizer(
             summ_pipeline=pipeline("summarization",
                 model = "NotXia/longformer-bio-ext-summ",
@@ -219,6 +219,8 @@ if __name__ == "__main__":
     model_args.add_argument("--oracle", action="store_true", help="Evaluate oracle")
     parser.add_argument("--embedding-path", type=str, required=False, help="Path to the local embedding model (for BioWordVec)")
     parser.add_argument("--clustering-criteria", choices=["abstract", "keywords"], default="abstract", help="Corpus to use for clustering")
+    parser.add_argument("--umap-components", type=int, default=10, help="UMAP number of components")
+    parser.add_argument("--optics-min-samples", type=int, default=2, help="OPTICS minimum number of neighbors")
     args = parser.parse_args()
 
     torch.manual_seed(42)
@@ -264,7 +266,12 @@ if __name__ == "__main__":
             embedding_fn = lambda docs: embedding_model.encode(docs)
         else:
             raise ValueError("Unknown embedding")
-        model = Framework(embedding=embedding_fn, clustering_criteria=args.clustering_criteria) # type: ignore
+        model = Framework(
+            embedding = embedding_fn, 
+            clustering_criteria = args.clustering_criteria,
+            umap_comps = args.umap_components,
+            optics_min_samples = args.optics_min_samples
+        ) # type: ignore
     elif args.plain:
         model = "plain"
     elif args.oracle:
