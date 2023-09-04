@@ -63,7 +63,7 @@ def _getKeywords(pmids):
             for keyword_xml in keywords_xml.findall("Keyword"):
                 keywords.append(keyword_xml.text)
                 
-        out_keywords.append(" ".join(keywords))
+        out_keywords.append(keywords)
 
     return out_keywords
 
