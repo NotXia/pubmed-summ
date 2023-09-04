@@ -12,6 +12,7 @@ class Document:
                 List of strings with format 'surname, name'
             doi : str|None
             pmid : str|None
+            keywords : list[str]|None
     """
     def __init__(self, 
             title: str, 
@@ -20,7 +21,8 @@ class Document:
             authors: list[str]|None = None, 
             doi: str|None = None, 
             pmid: str|None = None,
-            summary: str|list[str]|None = None # Summary as string or list of sencences
+            summary: str|list[str]|None = None, # Summary as string or list of sencences
+            keywords: list[str]|None = None
         ):
         self.title = title
         self.abstract = abstract
@@ -29,6 +31,7 @@ class Document:
         self.doi = doi
         self.pmid = pmid
         self.summary = summary
+        self.keywords = keywords
 
 
     def toJSON(self):
@@ -40,4 +43,5 @@ class Document:
             "doi": self.doi,
             "pmid": self.pmid,
             "summary": self.summary,
+            "keywords": self.keywords,
         }

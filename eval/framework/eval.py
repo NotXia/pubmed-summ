@@ -15,20 +15,64 @@ from modules.summarizer.ExtractiveSummarizer import ExtractiveSummarizer
 from umap import UMAP
 from sklearn.cluster import OPTICS
 from transformers import pipeline, AutoTokenizer
-import itertools
 from sentence_transformers import SentenceTransformer
 import gensim.downloader
 from gensim.models import KeyedVectors
 from sklearn.feature_extraction.text import TfidfVectorizer
+import argparse
+import requests
+import xml.etree.ElementTree as ET
+import time
 
 import warnings
 warnings.simplefilter("ignore")
 
 
+
+def _efetch(pmids):
+    for i in range(3):
+        try:
+            res = requests.post("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", data={
+                "db": "pubmed",
+                "retmode": "xml",
+                "rettype": "abstract",
+                "id": ",".join(pmids)
+            })
+            return res.content
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.ChunkedEncodingError):
+            time.sleep(3**(i+1))
+            continue
+    raise RuntimeError("Cannot retrieve articles")
+
+def _getKeywords(pmids):
+    out_keywords = []
+
+    query_xml = _efetch(pmids)
+    query_tree = ET.fromstring(query_xml)
+    for article_tree in query_tree:
+        keywords = []
+
+        # MeSH headings
+        mesh_headings_xml = article_tree.find("MedlineCitation/MeshHeadingList")
+        if mesh_headings_xml is not None: 
+            for mesh_xml in mesh_headings_xml.findall("MeshHeading"):
+                keywords.append(mesh_xml.find("DescriptorName").text) # type: ignore
+        # Keywords
+        keywords_xml = article_tree.find("MedlineCitation/KeywordList")
+        if keywords_xml is not None: 
+            for keyword_xml in keywords_xml.findall("Keyword"):
+                keywords.append(keyword_xml.text)
+                
+        out_keywords.append(" ".join(keywords))
+
+    return out_keywords
+
+
+
 class Framework():
-    def __init__(self, embedding):
+    def __init__(self, embedding, clustering_criteria):
         self.embedding = embedding
-        self.dim_reduction = UMAP(n_components=8, random_state=42)
+        self.dim_reduction = UMAP(n_components=10, random_state=42)
         self.clustering = OPTICS(min_samples=2)
         self.summarizer = ExtractiveSummarizer(
             summ_pipeline=pipeline("summarization",
@@ -38,7 +82,7 @@ class Framework():
                 device = 0 if torch.cuda.is_available() else -1
             ) # type: ignore
         )
-
+        self.clustering_criteria = clustering_criteria
 
     def _cluster(self, clusters: list[Cluster]):
         embedded_docs = []
@@ -46,7 +90,12 @@ class Framework():
 
         for cluster in clusters:
             abstracts = [d.abstract for d in cluster.docs]
-            embedded_docs = self.embedding(abstracts)
+            keywords = [" ".join(d.keywords) for d in cluster.docs] # type: ignore
+
+            if self.clustering_criteria == "abstract":
+                embedded_docs = self.embedding(abstracts)
+            elif self.clustering_criteria == "keywords":
+                embedded_docs = self.embedding(keywords)
             embedded_docs = self.dim_reduction.fit_transform(embedded_docs)
 
             labels = self.clustering.fit_predict(embedded_docs) # type: ignore
@@ -60,9 +109,12 @@ class Framework():
 
         return out_clusters
 
-    def __call__(self, abstracts: list[str], summary_size: int):
+    def __call__(self, abstracts: list[str], keywords: list[list[str]], summary_size: int):
+        assert len(abstracts) == len(keywords)
         clusters = [
-            Cluster(docs=[Document(title="", abstract=abstract) for abstract in abstracts])
+            Cluster(docs=[
+                Document(title="", abstract=abstracts[i], keywords=keywords[i]) for i in range(len(abstracts))
+            ])
         ]
         clusters = self._cluster(clusters)
         clusters, final_summary_sents = self.summarizer(
@@ -107,8 +159,11 @@ def gensimEmbed(embedding_model, documents: list[str]):
             Entries with less than this number of articles are skipped.
 
         summary_size : int
+
+        clustering_criteria : str
+            Corpus to use for clustering
 """
-def evaluate(model, original_dataset, extractive_dataset, splits, threshold, summary_size):
+def evaluate(model, original_dataset, extractive_dataset, splits, threshold, summary_size, clustering_criteria):
     metrics = MetricsLogger()
 
     if type(model) == str and model == "plain":
@@ -122,13 +177,18 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
     for split in splits:
         for i in range(len(original_dataset[split])):
             docs = original_dataset[split][i]["abstract"]
+            pmids = original_dataset[split][i]["pmid"]
             ref_summary = extractive_dataset[split][i]["ref_summary"]
             summary = ""
 
             if len(docs) < threshold: continue
 
             if type(model) == Framework:
-                selected_sents = model(docs, summary_size=summary_size)
+                if clustering_criteria == "keywords":
+                    keywords = _getKeywords(pmids)
+                else:
+                    keywords = [[]] * len(docs)
+                selected_sents = model(docs, keywords, summary_size=summary_size)
             elif model == "plain":
                 selected_sents, _ = summarizer({ "sentences": extractive_dataset[split][i]["sentences"] }, strategy="count", strategy_args=summary_size) # type: ignore
             elif model == "oracle":
@@ -158,6 +218,7 @@ if __name__ == "__main__":
     model_args.add_argument("--plain", action="store_true", help="Evaluate using document chunking without clustering")
     model_args.add_argument("--oracle", action="store_true", help="Evaluate oracle")
     parser.add_argument("--embedding-path", type=str, required=False, help="Path to the local embedding model (for BioWordVec)")
+    parser.add_argument("--clustering-criteria", choices=["abstract", "keywords"], default="abstract", help="Corpus to use for clustering")
     args = parser.parse_args()
 
     torch.manual_seed(42)
@@ -203,12 +264,10 @@ if __name__ == "__main__":
             embedding_fn = lambda docs: embedding_model.encode(docs)
         else:
             raise ValueError("Unknown embedding")
-        model = Framework(embedding=embedding_fn) # type: ignore
+        model = Framework(embedding=embedding_fn, clustering_criteria=args.clustering_criteria) # type: ignore
     elif args.plain:
-        print("Plain")
         model = "plain"
     elif args.oracle:
-        print("Oracle")
         model = "oracle"
     else:
         raise ValueError("Unknown model")
@@ -221,5 +280,6 @@ if __name__ == "__main__":
         extractive_dataset = extractive_dataset,
         splits = args.splits.split(","),
         threshold = args.docs_threshold,
-        summary_size = summary_size
+        summary_size = summary_size,
+        clustering_criteria = args.clustering_criteria
     )
