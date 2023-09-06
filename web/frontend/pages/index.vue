@@ -38,6 +38,7 @@
             socket.on("on_query_received", (data) => {
                 request_id.value = data.id
                 clusters.value = []
+                overall_summary.value = []
             })
 
             socket.on("on_clusters_created", (created_clusters) => {
