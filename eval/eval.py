@@ -1,6 +1,6 @@
 import sys
 from os import path
-sys.path.append(path.abspath("../../framework"))
+sys.path.append(path.abspath("../framework"))
 from datasets import load_from_disk, load_dataset
 import torch
 import numpy as np
@@ -23,13 +23,14 @@ import argparse
 import requests
 import xml.etree.ElementTree as ET
 import time
+import re
 
 import warnings
 warnings.simplefilter("ignore")
 
 
 
-def _efetch(pmids):
+def efetch(pmids):
     for i in range(3):
         try:
             res = requests.post("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", data={
@@ -44,10 +45,10 @@ def _efetch(pmids):
             continue
     raise RuntimeError("Cannot retrieve articles")
 
-def _getKeywords(pmids):
+def getKeywords(pmids):
     out_keywords = []
 
-    query_xml = _efetch(pmids)
+    query_xml = efetch(pmids)
     query_tree = ET.fromstring(query_xml)
     for article_tree in query_tree:
         keywords = []
@@ -141,6 +142,10 @@ def gensimEmbed(embedding_model, documents: list[str]):
     return embeddings
 
 
+def countWords(text):
+    return len(re.sub(' +',' ', text.replace("\n", " ")).split(" "))
+
+
 """
     Framework evaluation.
 
@@ -165,6 +170,7 @@ def gensimEmbed(embedding_model, documents: list[str]):
 """
 def evaluate(model, original_dataset, extractive_dataset, splits, threshold, summary_size, clustering_criteria):
     metrics = MetricsLogger()
+    total_words = 0
 
     if type(model) == str and model == "plain":
         summarizer = pipeline("summarization",
@@ -174,6 +180,7 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
             device = 0 if torch.cuda.is_available() else -1
         ) 
 
+    total_processed = 0
     for split in splits:
         # Indexes to display current status
         curr_processed = 0
@@ -191,7 +198,7 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
 
             if type(model) == Framework:
                 if clustering_criteria == "keywords":
-                    keywords = _getKeywords(pmids)
+                    keywords = getKeywords(pmids)
                 else:
                     keywords = [[]] * len(docs)
                 selected_sents = model(docs, keywords, summary_size=summary_size)
@@ -201,14 +208,16 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
                 selected_sents = [sent for j, sent in enumerate(extractive_dataset[split][i]["sentences"]) if extractive_dataset[split][i]["labels"][j]]
             summary = "\n".join(selected_sents) # type: ignore
 
+            curr_processed += 1
+            total_processed += 1
             metrics.add("rouge", evalROUGE( [ref_summary], [summary] ))
             metrics.add("bertscore", evalBERTScore( [ref_summary], [summary] ))
-            sys.stdout.write(f"\r{curr_processed+1}/{threshold_entries} ({split}) --- {metrics.format(['rouge', 'bertscore'])}\033[K")
+            total_words += countWords(summary)
+            sys.stdout.write(f"\r{curr_processed}/{threshold_entries} ({split}) --- {metrics.format(['rouge', 'bertscore'])} | avg. words: {total_words/curr_processed:.02f}\033[K")
             sys.stdout.flush()
-            curr_processed += 1
 
     sys.stdout.write("\r\033[K")
-    print(f"{metrics.format(['rouge', 'bertscore'])}")
+    print(f"{metrics.format(['rouge', 'bertscore'])} | avg. words: {total_words/total_processed:.02f}")
 
 
 
