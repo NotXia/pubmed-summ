@@ -139,7 +139,18 @@ class FetchFromPubMed(FetchInterface):
                 abstract = f"{abstract}\n{section_text}"
             abstract = abstract.strip()
 
-            return Document(title=title, abstract=abstract, date=date, authors=authors, doi=doi, pmid=pmid)
+            # Keywords and MeSH headings
+            keywords = []
+            mesh_headings_xml = xml.find("MedlineCitation/MeshHeadingList")
+            if mesh_headings_xml is not None: 
+                for mesh_xml in mesh_headings_xml.findall("MeshHeading"):
+                    keywords.append(mesh_xml.find("DescriptorName").text) # type: ignore
+            keywords_xml = xml.find("MedlineCitation/KeywordList")
+            if keywords_xml is not None: 
+                for keyword_xml in keywords_xml.findall("Keyword"):
+                    keywords.append(keyword_xml.text)
+
+            return Document(title=title, abstract=abstract, date=date, authors=authors, doi=doi, pmid=pmid, keywords=keywords)
         
         def _getCached(pmid) -> Document|None:
             if not self.fs_cache: return None
