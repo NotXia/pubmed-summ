@@ -17,6 +17,9 @@ class MetricsLogger():
         self.total_rougeL = { "fmeasure": [], "precision": [], "recall": [] }
         self.total_bertscore = { "fmeasure": [], "precision": [], "recall": [] }
 
+        self.total_words = []
+        self.total_clusters = []
+
 
     def add(self, type, value):
         if type == "loss":
@@ -37,6 +40,10 @@ class MetricsLogger():
             self.total_bertscore["fmeasure"].append(value["fmeasure"])
             self.total_bertscore["precision"].append(value["precision"])
             self.total_bertscore["recall"].append(value["recall"])
+        elif type == "words":
+            self.total_words.append(value)
+        elif type == "clusters":
+            self.total_clusters.append(value)
 
     def averages(self):
         return {
@@ -62,6 +69,8 @@ class MetricsLogger():
                 "precision": np.average(self.total_bertscore["precision"]),
                 "fmeasure": np.average(self.total_bertscore["fmeasure"])
             },
+            "words": np.average(self.total_words),
+            "clusters": np.average(self.total_clusters),
         }
 
 
@@ -79,5 +88,8 @@ class MetricsLogger():
             out += f"R-L r: {avgs['rougeL']['recall']*100:.2f} -- p: {avgs['rougeL']['precision']*100:.2f} -- f1: {avgs['rougeL']['fmeasure']*100:.2f} | "
         if "bertscore" in types:
             out += f"BS r: {avgs['bertscore']['recall']*100:.2f} -- p: {avgs['bertscore']['precision']*100:.2f} -- f1: {avgs['bertscore']['fmeasure']*100:.2f} | "
-
+        if "words" in types:
+            out += f"Avg words {avgs['words']:.2f} | "
+        if "clusters" in types:
+            out += f"Avg clusters {avgs['clusters']:.2f} | "
         return out

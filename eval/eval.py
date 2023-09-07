@@ -1,6 +1,7 @@
 import sys
 from os import path
 sys.path.append(path.abspath("../framework"))
+from typing import cast
 from datasets import load_from_disk, load_dataset
 import torch
 import numpy as np
@@ -124,7 +125,7 @@ class Framework():
             cluster_summary_len = summary_size, 
             overall_summary_len = summary_size
         )
-        return final_summary_sents
+        return final_summary_sents, len(cast(list[Cluster], clusters))
     
 
 
@@ -170,7 +171,8 @@ def countWords(text):
 """
 def evaluate(model, original_dataset, extractive_dataset, splits, threshold, summary_size, clustering_criteria):
     metrics = MetricsLogger()
-    total_words = 0
+    to_show_metrics = ["rouge", "bertscore", "words"]
+    if type(model) == Framework: to_show_metrics.append("clusters")
 
     if type(model) == str and model == "plain":
         summarizer = pipeline("summarization",
@@ -180,7 +182,6 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
             device = 0 if torch.cuda.is_available() else -1
         ) 
 
-    total_processed = 0
     for split in splits:
         # Indexes to display current status
         curr_processed = 0
@@ -201,7 +202,8 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
                     keywords = getKeywords(pmids)
                 else:
                     keywords = [[]] * len(docs)
-                selected_sents = model(docs, keywords, summary_size=summary_size)
+                selected_sents, n_clusters = model(docs, keywords, summary_size=summary_size)
+                metrics.add("clusters", n_clusters)
             elif model == "plain":
                 selected_sents, _ = summarizer({ "sentences": extractive_dataset[split][i]["sentences"] }, strategy="count", strategy_args=summary_size) # type: ignore
             elif model == "oracle":
@@ -209,15 +211,14 @@ def evaluate(model, original_dataset, extractive_dataset, splits, threshold, sum
             summary = "\n".join(selected_sents) # type: ignore
 
             curr_processed += 1
-            total_processed += 1
             metrics.add("rouge", evalROUGE( [ref_summary], [summary] ))
             metrics.add("bertscore", evalBERTScore( [ref_summary], [summary] ))
-            total_words += countWords(summary)
-            sys.stdout.write(f"\r{curr_processed}/{threshold_entries} ({split}) --- {metrics.format(['rouge', 'bertscore'])} | avg. words: {total_words/curr_processed:.02f}\033[K")
+            metrics.add("words", countWords(summary))
+            sys.stdout.write(f"\r{curr_processed}/{threshold_entries} ({split}) --- {metrics.format(to_show_metrics)}")
             sys.stdout.flush()
 
     sys.stdout.write("\r\033[K")
-    print(f"{metrics.format(['rouge', 'bertscore'])} | avg. words: {total_words/total_processed:.02f}")
+    print(f"{metrics.format(to_show_metrics)}")
 
 
 
