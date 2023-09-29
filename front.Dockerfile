@@ -1,0 +1,17 @@
+FROM node:18
+
+ARG PORT
+ARG BACKEND_URL
+ARG BACKEND_SOCKET
+ARG BACKEND_SOCKETIO_PATH
+ENV PORT                    $PORT
+ENV BACKEND_URL             $BACKEND_URL
+ENV BACKEND_SOCKET          $BACKEND_SOCKET
+ENV BACKEND_SOCKETIO_PATH   $BACKEND_SOCKETIO_PATH
+
+WORKDIR /web/frontend
+COPY web/frontend .
+RUN npm install
+RUN npm run generate
+
+CMD ["npm", "run", "preview"]
