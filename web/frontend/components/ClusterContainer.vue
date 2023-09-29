@@ -54,8 +54,10 @@
             type: Object as PropType<Cluster>,
             required: true,
         },
+        cluster_id: {
+            type: String, required: true
+        }
     });
-    const cluster_id = ref(props.cluster.topics.join('-').replace(/\s/g, ''))
 
     onMounted(() => {
         initAccordions();

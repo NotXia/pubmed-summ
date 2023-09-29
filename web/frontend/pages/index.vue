@@ -11,7 +11,7 @@
 
     <div v-if="request_id != ''" class="mt-4 mx-20" :key="request_id">
         <div v-if="clusters.length > 0" v-for="(cluster, i) in clusters" :key="cluster.topics.join('-')">
-            <ClusterContainer class="w-3/4 mt-12 mx-auto" :cluster="cluster" />
+            <ClusterContainer class="w-3/4 mt-12 mx-auto" :cluster="cluster" :cluster_id="`cluster-${i}-${request_id}`"/>
         </div>
         
         <Loading v-else class="flex justify-center"/>
