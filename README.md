@@ -1,5 +1,8 @@
 # Subtopic-oriented biomedical extractive summarization
-Summarization framework based on subtopic extraction and
+
+Work done for my [Bachelor's thesis](https://amslaurea.unibo.it/id/eprint/29686).
+
+Summarization framework based on subtopics and
 extractive summarization using pretrained language models.
 
 
